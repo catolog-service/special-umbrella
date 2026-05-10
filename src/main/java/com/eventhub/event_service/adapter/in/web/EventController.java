@@ -2,7 +2,7 @@ package com.eventhub.event_service.adapter.in.web;
 
 import com.eventhub.event_service.adapter.in.web.dto.EventCreateRequest;
 import com.eventhub.event_service.adapter.in.web.dto.EventResponse;
-import com.eventhub.event_service.application.port.in.EventInputPort;
+import com.eventhub.event_service.application.usecase.CreateEventUseCase;
 import com.eventhub.event_service.domain.entity.Event;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,16 +17,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-
 @RestController
 @RequestMapping("/api/events")
 @Tag(name = "Events", description = "Endpoints para gerenciar eventos")
 public class EventController {
 
-    private final EventInputPort eventInputPort;
+    private final CreateEventUseCase createEventUseCase;
 
-    public EventController(EventInputPort eventInputPort) {
-        this.eventInputPort = eventInputPort;
+    public EventController(CreateEventUseCase createEventUseCase) {
+
+        this.createEventUseCase = createEventUseCase;
     }
 
     @PostMapping
@@ -63,7 +63,7 @@ public class EventController {
         );
 
         // 2. Chamar porta de entrada (use case)
-        Event created = eventInputPort.create(eventDomain);
+        Event created = createEventUseCase.create(eventDomain);
 
         // 3. Mapear resultado → DTO de resposta
         EventResponse response = new EventResponse(
