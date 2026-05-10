@@ -3,25 +3,50 @@ package com.eventhub.event_service.adapter.out.persistence;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+import org.springframework.data.domain.Persistable;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "events")
-public class EventEntity {
+public class EventEntity implements Persistable<UUID> {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id ;
+    private UUID id;
 
     @Column(nullable = false)
     private String name;
 
+    @Column
+    private String description;
+
+    @Column
+    private LocalDateTime dateTime;
+
+    @Column
+    private String location;
+
+    @Transient
+    private boolean isNew = true;
+
+    public EventEntity() {
+    }
+
+    public EventEntity(UUID id, String name, String description, LocalDateTime dateTime, String location) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.dateTime = dateTime;
+        this.location = location;
+    }
+
+    @Override
     public UUID getId() {
         return id;
     }
@@ -54,22 +79,6 @@ public class EventEntity {
         this.dateTime = dateTime;
     }
 
-    public EventEntity(UUID id, String name, String description, LocalDateTime dateTime) {
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.dateTime = dateTime;
-    }
-
-    @Column
-    private String description;
-
-    @Column
-    private LocalDateTime dateTime;
-
-    @Column
-    private String location;
-
     public String getLocation() {
         return location;
     }
@@ -78,8 +87,15 @@ public class EventEntity {
         this.location = location;
     }
 
-    public EventEntity() {
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
 
+
+    @PostPersist
+    @PostLoad
+    void markNotNew() {
+        this.isNew = false;
     }
 }
-

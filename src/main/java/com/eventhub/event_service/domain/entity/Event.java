@@ -52,7 +52,7 @@ public class Event {
     }
 
     public Event(UUID id, String name, String description, LocalDateTime dateTime, String location) {
-        this.id = id;
+        this.id = (id != null) ? id : UUID.randomUUID();
         this.name = name;
         this.description = description;
         this.dateTime = dateTime;
@@ -63,4 +63,3 @@ public class Event {
         return id;
     }
 }
-

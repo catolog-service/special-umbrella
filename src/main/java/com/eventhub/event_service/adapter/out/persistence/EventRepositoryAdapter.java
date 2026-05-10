@@ -2,62 +2,38 @@ package com.eventhub.event_service.adapter.out.persistence;
 
 import com.eventhub.event_service.application.port.out.EventOutputPort;
 import com.eventhub.event_service.domain.entity.Event;
-import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Component
 public class EventRepositoryAdapter implements EventOutputPort {
 
     private final EventJpaRepository jpaRepository;
-    private final EntityManager entityManager;
 
-    public EventRepositoryAdapter(EventJpaRepository jpaRepository, EntityManager entityManager) {
+    public EventRepositoryAdapter(EventJpaRepository jpaRepository) {
         this.jpaRepository = jpaRepository;
-        this.entityManager = entityManager;
     }
 
     @Override
     @Transactional
     public Event save(Event event) {
-        // Mapear Event (domínio) → EventEntity (JPA)
+        // Domínio → Entidade JPA (ID já vem do domínio)
         EventEntity entity = new EventEntity();
+        entity.setId(event.getId());
         entity.setName(event.getName());
         entity.setDescription(event.getDescription());
         entity.setDateTime(event.getDateTime());
         entity.setLocation(event.getLocation());
 
-        // Hibernatate gera o UUID via @GeneratedValue
-        entityManager.persist(entity);
-        entityManager.flush();
+        EventEntity saved = jpaRepository.save(entity);
 
-        // Mapear EventEntity → Event (domínio)
+        // Entidade JPA → Domínio
         return new Event(
-                entity.getId(),
-                entity.getName(),
-                entity.getDescription(),
-                entity.getDateTime(),
-                entity.getLocation()
+                saved.getId(),
+                saved.getName(),
+                saved.getDescription(),
+                saved.getDateTime(),
+                saved.getLocation()
         );
     }
-
-    @Override
-    public Optional<Event> findById(UUID id) {
-        throw new UnsupportedOperationException("Método não implementado ainda");
-    }
-
-    @Override
-    public List<Event> findAll() {
-        throw new UnsupportedOperationException("Método não implementado ainda");
-    }
-
-    @Override
-    public void deleteById(UUID id) {
-        throw new UnsupportedOperationException("Método não implementado ainda");
-    }
 }
-
