@@ -4,6 +4,7 @@ import com.eventhub.event_service.application.port.out.EventOutputPort;
 import com.eventhub.event_service.domain.entity.Event;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
 @Component
 public class EventRepositoryAdapter implements EventOutputPort {
@@ -36,4 +37,29 @@ public class EventRepositoryAdapter implements EventOutputPort {
                 saved.getLocation()
         );
     }
+
+    @Transactional
+    public void deleteAll() {
+        jpaRepository.deleteAll();
+
+    }
+
+
+    @Override
+    public List<Event> list() {
+        return jpaRepository.findAll().stream()
+                .map(saved -> new Event(
+                        saved.getId(),
+                        saved.getName(),
+                        saved.getDescription(),
+                        saved.getDateTime(),
+                        saved.getLocation()
+                ))
+                .toList();
+
+
+    }
 }
+
+
+

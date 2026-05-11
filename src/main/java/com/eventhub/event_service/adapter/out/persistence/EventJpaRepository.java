@@ -11,5 +11,6 @@ import java.util.UUID;
  */
 @Repository
 public interface EventJpaRepository extends JpaRepository<EventEntity, UUID> {
+
 }
 

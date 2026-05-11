@@ -1,5 +1,6 @@
 package com.eventhub.event_service.domain.entity;
 
+import java.sql.ConnectionBuilder;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -10,6 +11,7 @@ public class Event {
     private String description;
     private LocalDateTime dateTime;
     private String location;
+
 
     public void setId(UUID id) {
         this.id = id;
