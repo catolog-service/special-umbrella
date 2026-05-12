@@ -29,7 +29,13 @@ Event Service é um microserviço que implementa operações CRUD para gerenciar
 - **Data/Hora**: Opcional (ISO 8601)
 - **Localização**: Opcional
 
-**Status atual:** Apenas operação CREATE implementada (POST /api/events)
+**Status atual:** ✅ Operações implementadas:
+- ✅ **CREATE** — Criar eventos (POST /api/events)
+- ✅ **LIST** — Listar todos os eventos (GET /api/events)
+- ✅ **DELETE ALL** — Deletar todos os eventos + limpar RabbitMQ (DELETE /api/events)
+- 🚧 **GET by ID** — Buscar evento por ID (em desenvolvimento)
+- 🚧 **UPDATE** — Atualizar evento (em desenvolvimento)
+- 🚧 **DELETE by ID** — Deletar evento específico (em desenvolvimento)
 
 ---
 
@@ -151,7 +157,9 @@ A aplicação estará disponível em: **http://localhost:8080**
 
 ## 🔌 Endpoints
 
-### POST /api/events — Criar evento
+### 1️⃣ POST /api/events — Criar evento
+
+**Descrição:** Cria um novo evento e publica automaticamente no RabbitMQ
 
 **Request:**
 ```http
@@ -177,6 +185,75 @@ Content-Type: application/json
 }
 ```
 
+**Fluxo:**
+1. Evento é salvo no PostgreSQL
+2. Evento é publicado no RabbitMQ automaticamente
+3. Logs registram sucesso da operação
+
+---
+
+### 2️⃣ GET /api/events — Listar todos os eventos
+
+**Descrição:** Retorna lista de todos os eventos cadastrados
+
+**Request:**
+```http
+GET /api/events
+Content-Type: application/json
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Conferência Spring Boot",
+    "description": "Conferência anual sobre Spring Boot e microserviços",
+    "dateTime": "2026-06-15T10:00:00",
+    "location": "São Paulo - SP"
+  },
+  {
+    "id": "660e8400-e29b-41d4-a716-446655440001",
+    "name": "Meetup Java",
+    "description": null,
+    "dateTime": null,
+    "location": null
+  }
+]
+```
+
+---
+
+### 3️⃣ DELETE /api/events — Deletar todos os eventos
+
+**Descrição:** ⚠️ **OPERAÇÃO IRREVERSÍVEL!**  
+Deleta TODOS os eventos do banco de dados E expurga a fila RabbitMQ
+
+**Request:**
+```http
+DELETE /api/events
+Content-Type: application/json
+```
+
+**Response (204 No Content):**
+```
+(sem corpo de resposta)
+```
+
+**O que acontece:**
+1. ✓ Todos os eventos são removidos do PostgreSQL
+2. ✓ Todas as mensagens na fila RabbitMQ são removidas
+3. ✓ Logs detalhados registram cada etapa
+
+**Logs esperados:**
+```
+🗑️  Iniciando exclusão de TODOS os eventos (banco de dados + RabbitMQ)...
+✓ 5 evento(s) deletado(s) do banco de dados com sucesso
+✓ Eventos deletados do banco de dados com sucesso
+✓ Fila RabbitMQ expurgada com sucesso
+✓ ✓ Exclusão completa: BANCO DE DADOS + RABBITMQ limpos com sucesso!
+```
+
 ---
 
 ## 📝 Exemplos de Uso
@@ -184,7 +261,7 @@ Content-Type: application/json
 ### Com curl
 
 ```bash
-# Criar evento completo
+# ✅ Criar evento completo
 curl -X POST http://localhost:8080/api/events \
   -H "Content-Type: application/json" \
   -d '{
@@ -196,16 +273,27 @@ curl -X POST http://localhost:8080/api/events \
 ```
 
 ```bash
-# Criar evento mínimo
+# ✅ Criar evento mínimo (apenas nome)
 curl -X POST http://localhost:8080/api/events \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "Meetup Java"
-  }'
+  -d '{"name": "Meetup Java"}'
+```
+
+```bash
+# ✅ Listar todos os eventos
+curl -X GET http://localhost:8080/api/events \
+  -H "Content-Type: application/json" | jq .
+```
+
+```bash
+# ⚠️ DELETAR TODOS os eventos (banco + RabbitMQ)
+curl -X DELETE http://localhost:8080/api/events \
+  -H "Content-Type: application/json"
 ```
 
 ### Com Postman/Insomnia
 
+#### Criar Evento
 1. **URL:** `http://localhost:8080/api/events`
 2. **Method:** `POST`
 3. **Headers:**
@@ -222,6 +310,23 @@ curl -X POST http://localhost:8080/api/events \
    }
    ```
 
+#### Listar Eventos
+1. **URL:** `http://localhost:8080/api/events`
+2. **Method:** `GET`
+3. **Headers:**
+   ```
+   Content-Type: application/json
+   ```
+
+#### Deletar Todos os Eventos
+1. **URL:** `http://localhost:8080/api/events`
+2. **Method:** `DELETE`
+3. **Headers:**
+   ```
+   Content-Type: application/json
+   ```
+4. **⚠️ Aviso:** Esta ação é irreversível!
+
 ### Com Swagger UI
 
 Acesse a documentação interativa em:
@@ -229,7 +334,11 @@ Acesse a documentação interativa em:
 http://localhost:8080/swagger-ui.html
 ```
 
-Teste os endpoints diretamente pela interface web.
+Recursos:
+- 📖 Visualizar todos os endpoints
+- 🧪 Testar operações diretamente
+- 📋 Ver modelos de request/response
+- 🔍 Explorar documentação OpenAPI
 
 ---
 
@@ -240,48 +349,71 @@ event-service/
 ├── src/main/java/com/eventhub/event_service/
 │
 ├── 📁 domain/                          (DOMÍNIO - Puro, sem frameworks)
-│   ├── entity/
-│   │   └── Event.java                  Entidade de domínio
-│   ├── repository/
-│   │   └── EventRepository.java        Interface (depreciada)
-│   └── service/
+│   └── entity/
+│       └── Event.java                  Entidade de domínio (UUID, name, description, etc)
 │
 ├── 📁 application/                     (APLICAÇÃO - Orquestra o domínio)
 │   ├── port/
 │   │   ├── in/
-│   │   │   └── EventInputPort.java     Porto de entrada (use cases expostos)
+│   │   │   ├── CreateEventUseCase.java     Use case: criar evento
+│   │   │   ├── DeleteEventUseCase.java     Use case: deletar todos
+│   │   │   └── ListEventUsecase.java       Use case: listar eventos
 │   │   └── out/
-│   │       └── EventOutputPort.java    Porto de saída (persistência)
-│   ├── service/
-│   │   └── EventApplicationService.java Implementa a lógica de aplicação
-│   └── usecase/
-│       └── CreateEventUseCase.java      Define contrato de criação
+│   │       ├── EventOutputPort.java        Porto de saída: persistência
+│   │       └── EventPublisher.java         Porto de saída: mensageria
+│   └── service/
+│       └── EventApplicationService.java    Orquestra use cases
 │
 ├── 📁 adapter/                         (ADAPTERS - Implementações concretas)
 │   ├── in/
 │   │   └── web/
-│   │       ├── EventController.java     REST controller
+│   │       ├── EventController.java     REST API controller
 │   │       └── dto/
-│   │           ├── EventCreateRequest.java  DTO de entrada
-│   │           └── EventResponse.java       DTO de saída
+│   │           ├── EventCreateRequest.java  DTO entrada
+│   │           └── EventResponse.java       DTO saída
 │   │
 │   └── out/
-│       └── persistence/
-│           ├── EventRepositoryAdapter.java  Implementa EventOutputPort
-│           ├── EventEntity.java             Entidade JPA
-│           └── EventJpaRepository.java      Spring Data JPA
+│       ├── persistence/
+│       │   ├── EventRepositoryAdapter.java  Implementa EventOutputPort
+│       │   ├── EventEntity.java             Entidade JPA/Hibernate
+│       │   └── EventJpaRepository.java      Spring Data JPA
+│       │
+│       └── messaging/
+│           ├── EventPublisherAdapter.java   Implementa EventPublisher
+│           └── EventPublisher.java          Interface de saída
 │
 ├── 📁 config/
-│   └── SecurityConfig.java              Configuração de segurança Spring
+│   ├── RabbitMqConfig.java              Configuração: queues, exchanges, bindings
+│   └── SecurityConfig.java              Configuração: Spring Security
 │
 └── 📁 resources/
-    ├── application.properties           Configurações da aplicação
-    ├── static/
-    └── templates/
+    ├── application.properties           Configurações (BD, RabbitMQ, etc)
+    └── db/
+        └── migration/
+            └── V1__create_events_table.sql  Flyway: criar tabela
 
-├── compose.yaml                        Docker Compose (PostgreSQL)
+├── compose.yaml                        Docker Compose (PostgreSQL + RabbitMQ)
 ├── pom.xml                             Dependências Maven
-└── README.md                           Este arquivo
+├── README.md                           Este arquivo
+└── DELETAR_EVENTOS.md                  Guia: função deleteAll()
+```
+
+### 📊 Fluxo de Dados
+
+```
+Cliente HTTP
+    ↓
+[EventController] ← REST Adapter (in)
+    ↓
+[CreateEventUseCase / DeleteEventUseCase / ListEventUsecase] ← Ports (in)
+    ↓
+[EventApplicationService] ← Application Layer
+    ↓                           ↓
+[EventOutputPort]           [EventPublisher]
+    ↓                           ↓
+[EventRepositoryAdapter]    [EventPublisherAdapter]
+    ↓                           ↓
+[PostgreSQL]                [RabbitMQ]
 ```
 
 ---
@@ -289,13 +421,19 @@ event-service/
 ## 🛠️ Tecnologias
 
 ### Core
-- **Java 21** — Linguagem de programação
-- **Spring Boot 4.0.6** — Framework web
+- **Java 21** — Linguagem de programação moderna
+- **Spring Boot 4.0.6** — Framework web robusto
 - **Spring Data JPA** — Acesso a dados
 - **Hibernate 7.2.12** — ORM
 
+### Messaging & Events
+- **RabbitMQ** — Message broker para eventos
+- **Spring AMQP** — Integração com RabbitMQ
+- **Jackson** — Serialização JSON
+
 ### Database
 - **PostgreSQL 16** — Banco de dados relacional
+- **Flyway** — Versionamento de schema
 - **Docker Compose** — Orquestração de containers
 
 ### API & Documentation
@@ -304,16 +442,22 @@ event-service/
 
 ### Security
 - **Spring Security** — Autenticação e autorização
+- **Spring Validation** — Validação de dados
 
-### Build & Packaging
+### Development Tools
+- **Lombok** — Reduz boilerplate de código
 - **Maven** — Gerenciador de dependências
 - **Spring Boot Maven Plugin** — Build e run
+
+### Resiliência
+- **Spring Cloud Circuit Breaker** — Padrão Circuit Breaker
+- **Resilience4j** — Implementação de Circuit Breaker
 
 ---
 
 ## ⚙️ Configurações
 
-### Banco de Dados
+### Banco de Dados (PostgreSQL)
 
 Arquivo: `src/main/resources/application.properties`
 
@@ -322,53 +466,150 @@ Arquivo: `src/main/resources/application.properties`
 spring.datasource.url=jdbc:postgresql://localhost:5432/eventdb
 spring.datasource.username=eventuser
 spring.datasource.password=eventpassword
+spring.datasource.driver-class-name=org.postgresql.Driver
 
-# Hibernate
-spring.jpa.hibernate.ddl-auto=create-drop  # Auto-criar/dropar tabelas
-spring.jpa.show-sql=true                  # Log SQL
+# Hibernate/JPA
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=true
+
+# Flyway (Versionamento de Schema)
+spring.flyway.enabled=true
+spring.flyway.locations=classpath:db/migration
+spring.flyway.baseline-on-migrate=true
 ```
 
-**Aviso:** `ddl-auto=create-drop` é apenas para **desenvolvimento**. Para produção, use `validate` ou `update`.
+**Aviso:** `ddl-auto=validate` é para **produção**. Para desenvolvimento, use `validate` (migrations via Flyway).
+
+### RabbitMQ (Message Broker)
+
+```properties
+# RabbitMQ
+spring.rabbitmq.host=localhost
+spring.rabbitmq.port=5672
+spring.rabbitmq.username=guest
+spring.rabbitmq.password=guest
+spring.rabbitmq.virtual-host=/
+
+# AMQP Logging
+logging.level.org.springframework.amqp=DEBUG
+```
+
+**Credenciais padrão (desenvolvimento):**
+- Host: `localhost`
+- Port: `5672`
+- Username: `guest`
+- Password: `guest`
+
+**Console RabbitMQ:** `http://localhost:15672` (usuário/senha: guest/guest)
 
 ### Security
 
 Por padrão, todos os endpoints estão **sem autenticação** (desenvolvimento).
 
-Para produção, adicione:
+Para produção, configure:
 ```properties
 spring.security.user.name=admin
 spring.security.user.password=sua-senha-segura
+```
+
+### Logging
+
+```properties
+# Hibernate SQL
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.type.descriptor.sql=TRACE
+
+# AMQP
+logging.level.org.springframework.amqp=DEBUG
 ```
 
 ---
 
 ## 🧪 Testando
 
-### Verificar saúde da aplicação
+### ✅ Teste Completo do Sistema
 
 ```bash
-curl -s http://localhost:8080/api/events \
-  -X POST \
+# 1. Criar primeiro evento
+curl -X POST http://localhost:8080/api/events \
   -H "Content-Type: application/json" \
-  -d '{"name":"Test"}' | jq .
+  -d '{"name":"Evento 1"}'
+
+# 2. Criar segundo evento
+curl -X POST http://localhost:8080/api/events \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Evento 2","location":"São Paulo"}'
+
+# 3. Listar todos os eventos
+curl -X GET http://localhost:8080/api/events | jq .
+
+# 4. Deletar TODOS os eventos e limpar RabbitMQ
+curl -X DELETE http://localhost:8080/api/events
+
+# 5. Verificar que está vazio
+curl -X GET http://localhost:8080/api/events
+# Deve retornar: []
 ```
 
-### Ver logs do banco
+### 📊 Verificar Base de Dados
 
 ```bash
-docker logs event-service-db
-```
-
-### Acessar PostgreSQL direto
-
-```bash
+# Acessar PostgreSQL direto
 docker exec -it event-service-db psql -U eventuser -d eventdb
 ```
 
 Dentro do PostgreSQL:
 ```sql
+-- Ver todos os eventos
 SELECT * FROM events;
+
+-- Contar eventos
 SELECT COUNT(*) FROM events;
+
+-- Ver estrutura da tabela
+\d events;
+```
+
+### 📨 Verificar RabbitMQ
+
+#### Console Web do RabbitMQ
+```
+URL: http://localhost:15672
+Usuário: guest
+Senha: guest
+```
+
+Ou via CLI:
+```bash
+# Listar filas
+docker exec -it event-service-rabbitmq rabbitmqctl list_queues
+
+# Listar exchanges
+docker exec -it event-service-rabbitmq rabbitmqctl list_exchanges
+
+# Listar bindings
+docker exec -it event-service-rabbitmq rabbitmqctl list_bindings
+```
+
+### 🔍 Ver Logs da Aplicação
+
+```bash
+# Ver logs em tempo real
+./mvnw spring-boot:run | grep -E "✓|✗|🗑️|RabbitMQ|Evento"
+
+# Ver logs do PostgreSQL
+docker logs event-service-db
+
+# Ver logs do RabbitMQ
+docker logs event-service-rabbitmq
+```
+
+### 🩺 Health Check da Aplicação
+
+```bash
+# Verificar se a aplicação está rodando
+curl -s http://localhost:8080/swagger-ui.html | head -20
 ```
 
 ---
@@ -382,39 +623,95 @@ SELECT COUNT(*) FROM events;
 lsof -i :8080 | grep LISTEN | awk '{print $2}' | xargs kill -9
 ```
 
-### Erro: "Connection refused" (PostgreSQL)
+### Erro: "Connection refused" (PostgreSQL/RabbitMQ)
 
 ```bash
 # Verificar se Docker está rodando
 docker ps
 
-# Reiniciar container
+# Reiniciar todos os containers
 docker compose down && docker compose up -d
+
+# Verificar logs
+docker compose logs -f
 ```
 
 ### Erro: "Table 'events' does not exist"
 
-A tabela é criada automaticamente na primeira execução. Se não aparecer:
+A tabela é criada automaticamente via Flyway na primeira execução:
 
 ```bash
-# Verificar logs do Hibernate
-./mvnw spring-boot:run | grep -i "create table"
+# Verificar se Flyway executou
+./mvnw spring-boot:run | grep -i "flyway\|migration"
+
+# Se não funcionar, resetar manualmente
+docker exec -it event-service-db psql -U eventuser -d eventdb -c "DROP TABLE IF EXISTS flyway_schema_history; DROP TABLE IF EXISTS events;"
+```
+
+### Erro: RabbitMQ não conecta
+
+```bash
+# Verificar se RabbitMQ está saudável
+docker logs event-service-rabbitmq | tail -20
+
+# Reiniciar RabbitMQ
+docker restart event-service-rabbitmq
+
+# Esperar 10 segundos e tentar novamente
+sleep 10 && ./mvnw spring-boot:run
+```
+
+### Erro: "Could not autowire RabbitAdmin"
+
+Verifique se RabbitMqConfig.java tem:
+```java
+@Bean
+public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
+    return new RabbitAdmin(connectionFactory);
+}
+```
+
+### Deletar Tudo e Recomeçar (Hard Reset)
+
+```bash
+# 1. Parar containers
+docker compose down -v
+
+# 2. Limpar compilação
+./mvnw clean
+
+# 3. Reiniciar
+docker compose up -d
+
+# 4. Compilar e rodar
+./mvnw spring-boot:run
 ```
 
 ---
 
 ## 📚 Próximos Passos
 
-- [ ] Implementar GET /api/events/{id}
-- [ ] Implementar GET /api/events (listar todos)
-- [ ] Implementar PUT /api/events/{id} (atualizar)
-- [ ] Implementar DELETE /api/events/{id} (deletar)
-- [ ] Adicionar validações (Bean Validation)
+### 🔴 Crítico (Impacto Alto)
+- [x] ✅ Implementar GET /api/events (listar todos)
+- [x] ✅ Implementar DELETE /api/events (deletar todos + RabbitMQ)
+- [ ] Implementar validações (Bean Validation)
 - [ ] Adicionar testes unitários e integração
+- [ ] Implementar Global Exception Handler
+
+### 🟡 Importante
+- [ ] Implementar GET /api/events/{id} (buscar por ID)
+- [ ] Implementar PUT /api/events/{id} (atualizar)
+- [ ] Implementar DELETE /api/events/{id} (deletar específico)
 - [ ] Configurar autenticação JWT
-- [ ] Adicionar cache (Redis)
 - [ ] Implementar paginação
-- [ ] Adicionar logs estruturados (SLF4J)
+
+### 🟢 Bom ter
+- [ ] Adicionar cache (Redis)
+- [ ] Implementar filtros avançados
+- [ ] Adicionar metrics (Micrometer)
+- [ ] Documentar padrões de erro em OpenAPI
+- [ ] Implementar soft delete
+- [ ] Adicionar auditoria de mudanças
 
 ---
 
@@ -422,9 +719,30 @@ A tabela é criada automaticamente na primeira execução. Se não aparecer:
 
 Para dúvidas ou problemas:
 
-1. Verificar logs: `./mvnw spring-boot:run`
-2. Consultar Swagger: `http://localhost:8080/swagger-ui.html`
-3. Verificar banco: `docker exec event-service-db psql -U eventuser -d eventdb`
+1. **Verificar logs:** 
+   ```bash
+   ./mvnw spring-boot:run | grep -E "✓|✗|ERROR|RabbitMQ"
+   ```
+
+2. **Consultar Swagger:** 
+   ```
+   http://localhost:8080/swagger-ui.html
+   ```
+
+3. **Verificar banco de dados:** 
+   ```bash
+   docker exec event-service-db psql -U eventuser -d eventdb -c "SELECT COUNT(*) FROM events;"
+   ```
+
+4. **Verificar RabbitMQ:** 
+   ```bash
+   docker exec event-service-rabbitmq rabbitmqctl list_queues
+   ```
+
+5. **Ler documentação adicional:**
+   ```bash
+   cat DELETAR_EVENTOS.md  # Guia específico para delete all
+   ```
 
 ---
 
@@ -436,13 +754,38 @@ MIT License - Sinta-se livre para usar este projeto!
 
 ## ✨ Padrões Utilizados
 
-- **Hexagonal Architecture** — Separação clara de camadas
-- **Domain-Driven Design (DDD)** — Foco no domínio
-- **Dependency Injection** — Através do Spring
-- **DTO Pattern** — Separação entre DTOs e entidades de domínio
-- **Repository Pattern** — Abstração de persistência
+- **Hexagonal Architecture** — Separação clara de camadas (domain, application, adapter, port)
+- **Domain-Driven Design (DDD)** — Foco no domínio (Event é a entidade central)
+- **Dependency Injection** — Através do Spring (Constructor Injection)
+- **DTO Pattern** — Separação entre DTOs (API) e entidades de domínio
+- **Repository Pattern** — Abstração de persistência via EventOutputPort
+- **Publisher Pattern** — Abstração de mensageria via EventPublisher
+- **Use Case Pattern** — Cada operação é um caso de uso segregado
 
 ---
 
-**Desenvolvido com ❤️ usando Hexagonal Architecture**
+## 🎯 Destaques Recentes
 
+### ✅ Função DeleteAll Aprimorada (v1.1)
+
+O endpoint `DELETE /api/events` agora executa **dois passos coordenados**:
+
+1. **Limpa o Banco de Dados**
+   - Remove todos os registros da tabela `events`
+   - Registra quantos eventos foram deletados
+   - Usa transação para garantir consistência
+
+2. **Expurga a Fila RabbitMQ**
+   - Remove todas as mensagens publicadas
+   - Impede que consumidores processem eventos antigos
+   - Registra sucesso/erro da operação
+
+**Benefícios:**
+- ✅ Sincronização entre BD e message broker
+- ✅ Logging detalhado de cada etapa
+- ✅ Tratamento robusto de exceções
+- ✅ Operação atômica e confiável
+
+Para mais detalhes, veja: **[DELETAR_EVENTOS.md](DELETAR_EVENTOS.md)**
+
+---
