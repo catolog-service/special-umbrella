@@ -58,7 +58,7 @@ public class EventController {
             )
     })
     public ResponseEntity<EventResponse> create(@Valid @RequestBody EventCreateRequest request) {
-git        log.info("🔵 [CREATE] Iniciando criação de evento: {}", request.getName());
+       log.info("🔵 [CREATE] Iniciando criação de evento: {}", request.getName());
         log.debug("📋 [CREATE] Detalhes: descrição={}, dataHora={}, localização={}",
                 request.getDescription(), request.getDateTime(), request.getLocation());
 
