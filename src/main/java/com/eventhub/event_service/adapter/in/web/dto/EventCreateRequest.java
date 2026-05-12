@@ -1,6 +1,11 @@
 package com.eventhub.event_service.adapter.in.web.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDateTime;
 
 /**
@@ -14,28 +19,41 @@ import java.time.LocalDateTime;
 )
 public class EventCreateRequest {
 
+    @NotBlank(message = "O nome do evento é obrigatório e não pode estar em branco")
+    @Size(min = 3, max = 100, message = "O nome deve ter entre 3 e 100 caracteres")
+    @Pattern(
+            regexp = "^[\\p{L}0-9\\s\\-_.,!?()]+$",
+            message = "O nome contém caracteres inválidos. Apenas letras, números e pontuação básica são permitidos"
+    )
     @Schema(
             description = "Nome do evento",
-            example = "Conferência Spring",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            example = "Conferência Spring Boot",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            minLength = 3,
+            maxLength = 100
     )
     private String name;
 
+    @Size(max = 500, message = "A descrição não pode ter mais de 500 caracteres")
     @Schema(
             description = "Descrição detalhada do evento",
-            example = "Conferência anual de Spring Framework"
+            example = "Conferência anual de Spring Framework",
+            maxLength = 500
     )
     private String description;
 
+    @Future(message = "A data do evento deve ser no futuro")
     @Schema(
-            description = "Data e hora do evento (ISO 8601)",
-            example = "2026-06-15T10:00:00"
+            description = "Data e hora do evento (ISO 8601). Deve ser uma data futura.",
+            example = "2027-06-15T10:00:00"
     )
     private LocalDateTime dateTime;
 
+    @Size(max = 200, message = "A localização não pode ter mais de 200 caracteres")
     @Schema(
             description = "Local onde o evento acontecerá",
-            example = "São Paulo"
+            example = "São Paulo - SP",
+            maxLength = 200
     )
     private String location;
 
