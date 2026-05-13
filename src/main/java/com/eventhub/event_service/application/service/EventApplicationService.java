@@ -19,7 +19,6 @@ public class EventApplicationService implements CreateEventUseCase, DeleteEventU
     private final EventOutputPort outputPort;
     private final EventPublisher eventPublisher;
 
-
     public EventApplicationService(EventOutputPort outputPort, EventPublisher eventPublisher) {
         this.outputPort = outputPort;
         this.eventPublisher = eventPublisher;
@@ -27,19 +26,18 @@ public class EventApplicationService implements CreateEventUseCase, DeleteEventU
 
     @Override
     public Event create(Event event) {
-
+        if (event == null) {
+            throw new NullPointerException("Event cannot be null");
+        }
         Event created = outputPort.save(event);
-        eventPublisher.publish(created);
 
         return created;
     }
 
     @Override
     public void deleteAll() {
-
         outputPort.deleteAll();
         eventPublisher.purgeAll();
-
     }
 
 
@@ -48,7 +46,5 @@ public class EventApplicationService implements CreateEventUseCase, DeleteEventU
         return outputPort.list();
     }
 }
-
-
 
 
