@@ -4,6 +4,7 @@ import com.eventhub.event_service.application.port.in.CreateEventUseCase;
 import com.eventhub.event_service.application.port.in.DeleteEventUseCase;
 import com.eventhub.event_service.application.port.in.ListEventUsecase;
 import com.eventhub.event_service.application.port.out.EventOutputPort;
+import com.eventhub.event_service.application.port.out.EventPublisher;
 import com.eventhub.event_service.domain.entity.Event;
 import org.springframework.stereotype.Service;
 
@@ -16,22 +17,29 @@ public class EventApplicationService implements CreateEventUseCase, DeleteEventU
 
 
     private final EventOutputPort outputPort;
+    private final EventPublisher eventPublisher;
 
-    public EventApplicationService(EventOutputPort outputPort) {
+
+    public EventApplicationService(EventOutputPort outputPort, EventPublisher eventPublisher) {
         this.outputPort = outputPort;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
     public Event create(Event event) {
 
         Event created = outputPort.save(event);
+        eventPublisher.publish(created);
 
         return created;
     }
 
     @Override
     public void deleteAll() {
+
         outputPort.deleteAll();
+        eventPublisher.purgeAll();
+
     }
 
 
@@ -40,5 +48,7 @@ public class EventApplicationService implements CreateEventUseCase, DeleteEventU
         return outputPort.list();
     }
 }
+
+
 
 

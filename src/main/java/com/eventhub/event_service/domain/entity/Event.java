@@ -1,6 +1,5 @@
 package com.eventhub.event_service.domain.entity;
 
-import java.sql.ConnectionBuilder;
 import java.time.LocalDateTime;
 import java.util.UUID;
 

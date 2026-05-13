@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: 'postgres:16-alpine'
@@ -19,8 +18,29 @@ services:
     networks:
       - event-network
 
+  rabbitmq:
+    image: 'rabbitmq:3.13-management-alpine'
+    container_name: event-service-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - '5672:5672'      # AMQP port
+      - '15672:15672'    # Management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - event-network
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
 volumes:
   postgres_data:
+    driver: local
+  rabbitmq_data:
     driver: local
 
 networks:
