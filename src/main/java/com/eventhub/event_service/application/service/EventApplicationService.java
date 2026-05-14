@@ -30,6 +30,7 @@ public class EventApplicationService implements CreateEventUseCase, DeleteEventU
             throw new NullPointerException("Event cannot be null");
         }
         Event created = outputPort.save(event);
+        eventPublisher.publish(created);
 
         return created;
     }
